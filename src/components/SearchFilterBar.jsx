@@ -21,6 +21,7 @@ export default function SearchFilterBar() {
     setGuestsCount,
     categoryFilter,
     setCategoryFilter,
+    rooms,
     availableRooms
   } = useBooking();
 
@@ -104,7 +105,7 @@ export default function SearchFilterBar() {
                 Live Inventory
               </div>
               <div className="text-base font-black">
-                {availableRooms.length} {availableRooms.length === 1 ? 'Room' : 'Rooms'} Ready
+                {availableRooms.length} of {rooms.length} {rooms.length === 1 ? 'Room' : 'Rooms'} Ready
               </div>
             </div>
             <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
@@ -124,7 +125,7 @@ export default function SearchFilterBar() {
               <button
                 key={c.id}
                 onClick={() => setCategoryFilter(c.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   categoryFilter === c.id
                     ? 'bg-[#0e4860] text-white shadow-sm'
                     : 'bg-slate-100 hover:bg-slate-200/80 text-slate-600'
@@ -136,11 +137,10 @@ export default function SearchFilterBar() {
           </div>
 
           <div className="text-xs text-slate-500 font-medium">
-            Showing verified available rooms for <strong className="text-slate-800">{nights} night(s)</strong>
+            Showing accommodations for <strong className="text-slate-800">{nights} night(s)</strong>
           </div>
         </div>
       </div>
     </div>
   );
 }
-

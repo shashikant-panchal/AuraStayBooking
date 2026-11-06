@@ -441,7 +441,12 @@ export function BookingProvider({ children }) {
     // 3. Write directly to Supabase to persist & lock in database
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('reservations').insert(newReservation);
+        const { error: insErr } = await supabase.from('reservations').insert(newReservation);
+        if (insErr && (insErr.code === 'PGRST204' || insErr.message?.includes('hotel_id'))) {
+          // Fallback if columns not present yet in schema
+          const { hotel_id, special_requests, ...fallbackRes } = newReservation;
+          await supabase.from('reservations').insert(fallbackRes);
+        }
         await supabase
           .from('rooms')
           .update({

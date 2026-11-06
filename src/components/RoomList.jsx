@@ -4,7 +4,7 @@ import RoomCard from './RoomCard';
 import { BedDouble, Sparkles, RefreshCcw } from 'lucide-react';
 
 export default function RoomList() {
-  const { availableRooms, isLoading, selectedHotel } = useBooking();
+  const { rooms, availableRooms, isLoading, selectedHotel, categoryFilter } = useBooking();
 
   if (isLoading) {
     return (
@@ -18,17 +18,27 @@ export default function RoomList() {
     );
   }
 
-  if (availableRooms.length === 0) {
+  // Filter rooms by category if active
+  const displayedRooms = rooms.filter(room => {
+    if (categoryFilter !== 'ALL' && room.type !== categoryFilter) return false;
+    return true;
+  });
+
+  const availableRoomNumbers = new Set(availableRooms.map(r => String(r.roomNumber)));
+
+  if (displayedRooms.length === 0) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center">
         <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto mb-4">
           <BedDouble className="w-8 h-8" />
         </div>
         <h3 className="text-xl font-bold text-slate-900 font-serif">
-          No Available Rooms for Selected Criteria
+          No Rooms Found
         </h3>
         <p className="text-xs text-slate-500 max-w-md mx-auto mt-2 leading-relaxed">
-          All rooms at {selectedHotel.name} matching your date range or filter are currently reserved. Try selecting different stay dates or category filters.
+          {categoryFilter !== 'ALL' 
+            ? `No rooms found matching category "${categoryFilter}". Click "All Rooms" to view all available accommodations.`
+            : `No rooms have been added to ${selectedHotel.name} yet.`}
         </p>
       </div>
     );
@@ -46,16 +56,19 @@ export default function RoomList() {
           </p>
         </div>
         <span className="text-xs font-bold text-[#0e4860] bg-cyan-50 px-3 py-1.5 rounded-xl border border-cyan-200">
-          {availableRooms.length} {availableRooms.length === 1 ? 'Option' : 'Options'} Available
+          {availableRooms.length} of {displayedRooms.length} Available
         </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {availableRooms.map((room) => (
-          <RoomCard key={room.id || room.roomNumber} room={room} />
+        {displayedRooms.map((room) => (
+          <RoomCard 
+            key={room.id || room.roomNumber} 
+            room={room} 
+            isAvailable={availableRoomNumbers.has(String(room.roomNumber))}
+          />
         ))}
       </div>
     </section>
   );
 }
-

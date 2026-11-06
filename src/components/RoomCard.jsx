@@ -9,7 +9,8 @@ import {
   CheckCircle2, 
   ArrowRight,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  CalendarX
 } from 'lucide-react';
 
 const CATEGORY_IMAGES = {
@@ -20,20 +21,22 @@ const CATEGORY_IMAGES = {
   'Presidential Suite': 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80'
 };
 
-export default function RoomCard({ room }) {
+export default function RoomCard({ room, isAvailable = true }) {
   const { nights, handleSelectRoom } = useBooking();
 
   const imageUrl = room.imageUrl || CATEGORY_IMAGES[room.type] || CATEGORY_IMAGES['Standard Room'];
   const totalAmount = room.price * nights;
 
   return (
-    <div className="bg-white rounded-3xl overflow-hidden border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
+    <div className={`bg-white rounded-3xl overflow-hidden border transition-all duration-300 flex flex-col group ${
+      isAvailable ? 'border-slate-200/90 shadow-sm hover:shadow-xl' : 'border-amber-200/80 bg-amber-50/20 shadow-xs'
+    }`}>
       {/* Room Image Container */}
       <div className="relative h-56 overflow-hidden bg-slate-900">
         <img
           src={imageUrl}
           alt={room.type}
-          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+          className={`w-full h-full object-cover group-hover:scale-105 transition duration-500 ${!isAvailable ? 'opacity-85 grayscale-20' : ''}`}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
 
@@ -44,11 +47,18 @@ export default function RoomCard({ room }) {
           <span className="text-slate-400 font-normal">({room.floor})</span>
         </div>
 
-        {/* Live vacant status */}
-        <div className="absolute top-4 right-4 bg-emerald-500/90 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 shadow-md">
-          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-          <span>Available Now</span>
-        </div>
+        {/* Live availability status pill */}
+        {isAvailable ? (
+          <div className="absolute top-4 right-4 bg-emerald-500/90 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 shadow-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+            <span>Available Now</span>
+          </div>
+        ) : (
+          <div className="absolute top-4 right-4 bg-amber-600/90 backdrop-blur-md text-white px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 shadow-md">
+            <CalendarX className="w-3 h-3" />
+            <span>Reserved for Dates</span>
+          </div>
+        )}
 
         {/* Room Category Label */}
         <div className="absolute bottom-3 left-4 right-4 text-white">
@@ -100,16 +110,24 @@ export default function RoomCard({ room }) {
             )}
           </div>
 
-          <button
-            onClick={() => handleSelectRoom(room)}
-            className="px-5 py-2.5 bg-[#0e4860] hover:bg-[#135d7c] text-white rounded-2xl text-xs font-bold shadow-md shadow-[#0e4860]/20 flex items-center space-x-1.5 transition group/btn cursor-pointer"
-          >
-            <span>Book Room</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition" />
-          </button>
+          {isAvailable ? (
+            <button
+              onClick={() => handleSelectRoom(room)}
+              className="px-5 py-2.5 bg-[#0e4860] hover:bg-[#135d7c] text-white rounded-2xl text-xs font-bold shadow-md shadow-[#0e4860]/20 flex items-center space-x-1.5 transition group/btn cursor-pointer"
+            >
+              <span>Book Room</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition" />
+            </button>
+          ) : (
+            <div className="text-right">
+              <span className="inline-block px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-bold">
+                Booked on Selected Dates
+              </span>
+              <div className="text-[10px] text-slate-400 mt-0.5">Change dates above to book</div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
-
