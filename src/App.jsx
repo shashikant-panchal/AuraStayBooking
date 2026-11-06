@@ -7,6 +7,7 @@ import RoomList from './components/RoomList';
 import BookingModal from './components/BookingModal';
 import BookingConfirmationModal from './components/BookingConfirmationModal';
 import MyBookingsDrawer from './components/MyBookingsDrawer';
+import GuestAuthModal from './components/GuestAuthModal';
 import Footer from './components/Footer';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -44,6 +45,7 @@ export default function App() {
       </main>
 
       {/* Modals & Drawers */}
+      <GuestAuthModal />
       <BookingModal />
       <BookingConfirmationModal />
       <MyBookingsDrawer />

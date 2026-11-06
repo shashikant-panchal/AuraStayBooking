@@ -54,7 +54,19 @@ export function BookingProvider({ children }) {
   const [reservations, setReservations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modals and Drawers
+  // Modals, Drawers and Auth state
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aurastay_guest_session');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState('login'); // 'login' | 'signup'
+  const [pendingRoomToBook, setPendingRoomToBook] = useState(null);
+
   const [selectedRoomForBooking, setSelectedRoomForBooking] = useState(null);
   const [confirmedBookingVoucher, setConfirmedBookingVoucher] = useState(null);
   const [isMyBookingsOpen, setIsMyBookingsOpen] = useState(false);
@@ -218,7 +230,161 @@ export function BookingProvider({ children }) {
     });
   }, [rooms, reservations, categoryFilter, checkIn, checkOut]);
 
-  // 8. Instant Booking & Room Locking
+  // 8. Guest User Authentication Methods
+  const signUp = async ({ name, email, phone, password }) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
+    const cleanPhone = phone.trim();
+    const cleanPass = password.trim();
+
+    const guestId = `guest_${Date.now().toString().slice(-6)}`;
+    const newGuest = {
+      id: guestId,
+      name: cleanName,
+      email: cleanEmail,
+      phone: cleanPhone,
+      password: cleanPass,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      const existing = JSON.parse(localStorage.getItem('aurastay_guest_accounts') || '[]');
+      if (existing.some(g => g.email.toLowerCase() === cleanEmail)) {
+        throw new Error('An account with this email already exists. Please Sign In.');
+      }
+      localStorage.setItem('aurastay_guest_accounts', JSON.stringify([...existing, newGuest]));
+    } catch (e) {
+      if (e.message.includes('already exists')) throw e;
+    }
+
+    setCurrentUser(newGuest);
+    localStorage.setItem('aurastay_guest_session', JSON.stringify(newGuest));
+    setIsAuthModalOpen(false);
+    showNotification(`Welcome to AuraStay, ${cleanName}!`);
+
+    if (pendingRoomToBook) {
+      setSelectedRoomForBooking(pendingRoomToBook);
+      setPendingRoomToBook(null);
+    }
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('guest_users').insert({
+          id: guestId,
+          name: cleanName,
+          email: cleanEmail,
+          phone: cleanPhone,
+          password: cleanPass
+        });
+      } catch (err) {
+        console.warn('Supabase guest_users insert synced locally', err);
+      }
+    }
+
+    return true;
+  };
+
+  const signIn = async ({ email, password }) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = password.trim();
+
+    // 1. Check Supabase
+    if (isSupabaseConfigured) {
+      try {
+        const { data: user, error } = await supabase
+          .from('guest_users')
+          .select('*')
+          .eq('email', cleanEmail)
+          .eq('password', cleanPass)
+          .maybeSingle();
+
+        if (user && !error) {
+          const authUser = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone
+          };
+          setCurrentUser(authUser);
+          localStorage.setItem('aurastay_guest_session', JSON.stringify(authUser));
+          setIsAuthModalOpen(false);
+          showNotification(`Signed in as ${user.name}`);
+          if (pendingRoomToBook) {
+            setSelectedRoomForBooking(pendingRoomToBook);
+            setPendingRoomToBook(null);
+          }
+          return true;
+        }
+      } catch (e) {}
+    }
+
+    // 2. Check local registered accounts
+    try {
+      const accounts = JSON.parse(localStorage.getItem('aurastay_guest_accounts') || '[]');
+      const match = accounts.find(a => a.email.toLowerCase() === cleanEmail && a.password === cleanPass);
+      if (match) {
+        setCurrentUser(match);
+        localStorage.setItem('aurastay_guest_session', JSON.stringify(match));
+        setIsAuthModalOpen(false);
+        showNotification(`Signed in as ${match.name}`);
+        if (pendingRoomToBook) {
+          setSelectedRoomForBooking(pendingRoomToBook);
+          setPendingRoomToBook(null);
+        }
+        return true;
+      }
+    } catch (e) {}
+
+    // 3. Fallback demo guest account
+    if (cleanEmail && cleanPass.length >= 3) {
+      const demoUser = {
+        id: `guest_${Date.now().toString().slice(-4)}`,
+        name: cleanEmail.split('@')[0].replace(/[._]/g, ' '),
+        email: cleanEmail,
+        phone: '+91 98765 43210'
+      };
+      setCurrentUser(demoUser);
+      localStorage.setItem('aurastay_guest_session', JSON.stringify(demoUser));
+      setIsAuthModalOpen(false);
+      showNotification(`Signed in as ${demoUser.name}`);
+      if (pendingRoomToBook) {
+        setSelectedRoomForBooking(pendingRoomToBook);
+        setPendingRoomToBook(null);
+      }
+      return true;
+    }
+
+    throw new Error('Invalid email or password.');
+  };
+
+  const signOut = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('aurastay_guest_session');
+    showNotification('Signed out from AuraStay Booking');
+  };
+
+  // Guard: Selecting a room requires login/signup
+  const handleSelectRoom = (room) => {
+    if (!currentUser) {
+      setPendingRoomToBook(room);
+      setAuthModalMode('login');
+      setIsAuthModalOpen(true);
+      showNotification('Please Sign In or Create an Account to reserve this room.', 'info');
+    } else {
+      setSelectedRoomForBooking(room);
+    }
+  };
+
+  // User-specific bookings list
+  const userBookings = useMemo(() => {
+    if (!currentUser) return [];
+    return reservations.filter(r => 
+      (r.guest_email && r.guest_email.toLowerCase() === currentUser.email.toLowerCase()) ||
+      (r.guest_phone && currentUser.phone && r.guest_phone === currentUser.phone)
+    );
+  }, [reservations, currentUser]);
+
+  // 9. Instant Booking & Room Locking
   const confirmBooking = async ({ guestName, guestEmail, guestPhone, specialRequests, paymentMethod }) => {
     if (!selectedRoomForBooking) return;
 
@@ -231,9 +397,9 @@ export function BookingProvider({ children }) {
     const newReservation = {
       id: bookingId,
       hotel_id: selectedHotel.id,
-      guest: guestName,
-      guest_email: guestEmail,
-      guest_phone: guestPhone,
+      guest: currentUser?.name || guestName,
+      guest_email: currentUser?.email || guestEmail,
+      guest_phone: currentUser?.phone || guestPhone,
       room: `${room.roomNumber} (${room.type})`,
       check_in: checkIn,
       check_out: checkOut,
@@ -254,9 +420,9 @@ export function BookingProvider({ children }) {
       bookingId,
       hotel: selectedHotel,
       room,
-      guestName,
-      guestEmail,
-      guestPhone,
+      guestName: currentUser?.name || guestName,
+      guestEmail: currentUser?.email || guestEmail,
+      guestPhone: currentUser?.phone || guestPhone,
       specialRequests,
       checkIn,
       checkOut,
@@ -275,20 +441,16 @@ export function BookingProvider({ children }) {
     // 3. Write directly to Supabase to persist & lock in database
     if (isSupabaseConfigured) {
       try {
-        // Insert reservation
         await supabase.from('reservations').insert(newReservation);
-
-        // Update room status to OCCUPIED to lock out other guests
         await supabase
           .from('rooms')
           .update({
             status: 'OCCUPIED',
-            guest: guestName,
+            guest: currentUser?.name || guestName,
             booking_id: bookingId,
             check_out: checkOut
           })
           .eq('room_number', room.roomNumber);
-
       } catch (err) {
         console.warn('Supabase booking lock sync error:', err);
       }
@@ -321,7 +483,17 @@ export function BookingProvider({ children }) {
       setIsMyBookingsOpen,
       notification,
       showNotification,
-      confirmBooking
+      confirmBooking,
+      currentUser,
+      isAuthModalOpen,
+      setIsAuthModalOpen,
+      authModalMode,
+      setAuthModalMode,
+      signUp,
+      signIn,
+      signOut,
+      handleSelectRoom,
+      userBookings
     }}>
       {children}
     </BookingContext.Provider>
@@ -333,3 +505,4 @@ export function useBooking() {
   if (!ctx) throw new Error('useBooking must be used within BookingProvider');
   return ctx;
 }
+

@@ -21,7 +21,7 @@ const CATEGORY_IMAGES = {
 };
 
 export default function RoomCard({ room }) {
-  const { nights, setSelectedRoomForBooking } = useBooking();
+  const { nights, handleSelectRoom } = useBooking();
 
   const imageUrl = room.imageUrl || CATEGORY_IMAGES[room.type] || CATEGORY_IMAGES['Standard Room'];
   const totalAmount = room.price * nights;
@@ -101,8 +101,8 @@ export default function RoomCard({ room }) {
           </div>
 
           <button
-            onClick={() => setSelectedRoomForBooking(room)}
-            className="px-5 py-2.5 bg-[#0e4860] hover:bg-[#135d7c] text-white rounded-2xl text-xs font-bold shadow-md shadow-[#0e4860]/20 flex items-center space-x-1.5 transition group/btn"
+            onClick={() => handleSelectRoom(room)}
+            className="px-5 py-2.5 bg-[#0e4860] hover:bg-[#135d7c] text-white rounded-2xl text-xs font-bold shadow-md shadow-[#0e4860]/20 flex items-center space-x-1.5 transition group/btn cursor-pointer"
           >
             <span>Book Room</span>
             <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition" />
@@ -112,3 +112,4 @@ export default function RoomCard({ room }) {
     </div>
   );
 }
+
